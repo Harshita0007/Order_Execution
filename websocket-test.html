@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Order Status Monitor</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+        }
+
+        #messages {
+            white-space: pre-wrap;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .status {
+            padding: 8px;
+            margin: 6px 0;
+            border-left: 3px solid #00ff00;
+            background: #111;
+        }
+
+        .pending {
+            border-color: #ffff00;
+        }
+
+        .routing {
+            border-color: #00aaff;
+        }
+
+        .building {
+            border-color: #ff8800;
+        }
+
+        .submitted {
+            border-color: #ff00ff;
+        }
+
+        .confirmed {
+            border-color: #00ff00;
+        }
+
+        .failed {
+            border-color: #ff0000;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🚀 Order Execution Monitor</h1>
+
+    <input type="text" id="orderIdInput" placeholder="Enter Order ID" style="width: 400px; padding: 5px;" />
+    <button onclick="connectWebSocket()">Connect</button>
+
+    <div id="messages"></div>
+
+    <script>
+        let ws = null;
+        const messagesDiv = document.getElementById('messages'); // <-- make it global
+
+        function connectWebSocket() {
+            const orderId = document.getElementById('orderIdInput').value.trim();
+            if (!orderId) {
+                alert('Please enter an Order ID');
+                return;
+            }
+
+            // Close previous socket if any
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+
+            const url = `ws://localhost:3000/api/orders/${orderId}/stream`;
+            addMessage('info', `Connecting to ${url} ...`);
+
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                addMessage('connected', 'WebSocket connection established');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    addMessage(data.status || data.type || 'message', JSON.stringify(data, null, 2));
+                } catch (e) {
+                    addMessage('message', event.data);
+                }
+            };
+
+            ws.onerror = (error) => {
+                addMessage('error', 'WebSocket error occurred');
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                addMessage('disconnected', 'WebSocket connection closed');
+            };
+        }
+
+        function addMessage(status, text) {
+            const div = document.createElement('div');
+            div.className = `status ${String(status).toLowerCase()}`;
+            div.textContent = `[${new Date().toISOString()}] ${status}:\n${text}`;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>
